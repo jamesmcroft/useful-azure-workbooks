@@ -1,0 +1,696 @@
+{
+  "version": "Notebook/1.0",
+  "items": [
+    {
+      "type": 1,
+      "content": {
+        "json": "# Azure MySQL Flexible Server — Insights\nUse this workbook to analyze and monitor all your Azure MySQL Flexible Server resources (providers/Microsoft.DBforMySQL/flexibleServers)."
+      },
+      "name": "text - title"
+    },
+    {
+      "type": 9,
+      "content": {
+        "version": "KqlParameterItem/1.0",
+        "crossComponentResources": [
+          "value::selected"
+        ],
+        "parameters": [
+          {
+            "id": "sub-param",
+            "version": "KqlParameterItem/1.0",
+            "name": "Subscription",
+            "type": 6,
+            "description": "All subscriptions",
+            "isRequired": true,
+            "multiSelect": true,
+            "quote": "'",
+            "delimiter": ",",
+            "typeSettings": {
+              "additionalResourceOptions": [
+                "value::all"
+              ],
+              "includeAll": true,
+              "showDefault": false
+            },
+            "value": [
+              "value::all"
+            ]
+          },
+          {
+            "id": "rg-param",
+            "version": "KqlParameterItem/1.0",
+            "name": "ResourceGroup",
+            "label": "Resource Group",
+            "type": 5,
+            "isRequired": true,
+            "multiSelect": true,
+            "quote": "'",
+            "delimiter": ",",
+            "query": "where type == 'microsoft.dbformysql/flexibleservers'\n| summarize Count = count() by resourceGroup\n| order by Count desc\n| extend Rank = row_number()\n| project value = resourceGroup, label = resourceGroup, selected = Rank == 1",
+            "crossComponentResources": [
+              "{Subscription}"
+            ],
+            "typeSettings": {
+              "additionalResourceOptions": [
+                "value::all"
+              ],
+              "showDefault": false
+            },
+            "queryType": 1,
+            "resourceType": "microsoft.resourcegraph/resources",
+            "value": [
+              "value::all"
+            ]
+          },
+          {
+            "id": "mysql-param",
+            "version": "KqlParameterItem/1.0",
+            "name": "MySQLServers",
+            "label": "MySQL Flexible Servers",
+            "type": 5,
+            "multiSelect": true,
+            "quote": "'",
+            "delimiter": ",",
+            "query": "resources\n| where type =~ 'microsoft.dbformysql/flexibleservers'\n| where resourceGroup in ({ResourceGroup:value})\n| order by name asc\n| extend Rank = row_number()\n| project value = id, label = name, selected = Rank <= 10",
+            "crossComponentResources": [
+              "{Subscription}"
+            ],
+            "typeSettings": {
+              "additionalResourceOptions": [
+                "value::all"
+              ],
+              "showDefault": false
+            },
+            "queryType": 1,
+            "resourceType": "microsoft.resourcegraph/resources",
+            "value": [
+              "value::all"
+            ]
+          },
+          {
+            "id": "time-param",
+            "version": "KqlParameterItem/1.0",
+            "name": "TimeRange",
+            "label": "Time range",
+            "type": 4,
+            "isRequired": true,
+            "value": {
+              "durationMs": 86400000
+            },
+            "typeSettings": {
+              "selectableValues": [
+                {
+                  "durationMs": 300000
+                },
+                {
+                  "durationMs": 900000
+                },
+                {
+                  "durationMs": 1800000
+                },
+                {
+                  "durationMs": 3600000
+                },
+                {
+                  "durationMs": 14400000
+                },
+                {
+                  "durationMs": 43200000
+                },
+                {
+                  "durationMs": 86400000
+                },
+                {
+                  "durationMs": 172800000
+                },
+                {
+                  "durationMs": 259200000
+                },
+                {
+                  "durationMs": 604800000
+                }
+              ],
+              "allowCustom": true
+            }
+          }
+        ],
+        "style": "above",
+        "queryType": 1,
+        "resourceType": "microsoft.resourcegraph/resources"
+      },
+      "name": "Parameters",
+      "styleSettings": {
+        "margin": "15px 0 0 0"
+      }
+    },
+    {
+      "type": 11,
+      "content": {
+        "version": "LinkItem/1.0",
+        "style": "tabs",
+        "links": [
+          {
+            "id": "tab-overview",
+            "cellValue": "selectedTab",
+            "linkTarget": "parameter",
+            "linkLabel": "Overview",
+            "subTarget": "Overview",
+            "style": "link"
+          },
+          {
+            "id": "tab-inventory",
+            "cellValue": "selectedTab",
+            "linkTarget": "parameter",
+            "linkLabel": "Inventory",
+            "subTarget": "Inventory",
+            "style": "link"
+          },
+          {
+            "id": "tab-monitor",
+            "cellValue": "selectedTab",
+            "linkTarget": "parameter",
+            "linkLabel": "Monitor",
+            "subTarget": "Monitor",
+            "style": "link"
+          }
+        ]
+      },
+      "name": "Navigation"
+    },
+    {
+      "type": 12,
+      "content": {
+        "version": "NotebookGroup/1.0",
+        "groupType": "editable",
+        "items": [
+          {
+            "type": 1,
+            "content": {
+              "json": "### MySQL Flexible Servers — Overview",
+              "style": "upsell"
+            },
+            "name": "text - overview title"
+          },
+          {
+            "type": 3,
+            "content": {
+              "version": "KqlItem/1.0",
+              "query": "resources\n| where type =~ 'microsoft.dbformysql/flexibleservers'\n| where resourceGroup in ({ResourceGroup:value})\n| where ('value::all' in ({MySQLServers:value}) or id in ({MySQLServers:value}))\n| extend skuName = tostring(sku.name), skuTier = tostring(sku.tier)\n| extend haMode = tostring(properties.highAvailability.mode)\n| extend state = tostring(properties.state)\n| extend version = tostring(properties.version)\n| extend fullVersion = tostring(properties.fullVersion)\n| extend availabilityZone = tostring(properties.availabilityZone)\n| extend storageSizeGB = toint(properties.storage.storageSizeGB)\n| extend backupRetentionDays = toint(properties.backup.backupRetentionDays)\n| extend georedundantBackup = tostring(properties.backup.geoRedundantBackup)\n| extend Details = pack_all()\n| project id, name, resourceGroup, location, skuTier, skuName, haMode, state, version, fullVersion, availabilityZone, storageSizeGB, backupRetentionDays, georedundantBackup, subscriptionId, Details",
+              "size": 3,
+              "queryType": 1,
+              "resourceType": "microsoft.resourcegraph/resources",
+              "crossComponentResources": [
+                "{Subscription}"
+              ],
+              "gridSettings": {
+                "formatters": [
+                  {
+                    "columnMatch": "$gen_group",
+                    "formatter": 13,
+                    "formatOptions": {
+                      "linkTarget": "Resource",
+                      "showIcon": true
+                    }
+                  },
+                  {
+                    "columnMatch": "id",
+                    "formatter": 5
+                  },
+                  {
+                    "columnMatch": "location",
+                    "formatter": 17
+                  },
+                  {
+                    "columnMatch": "skuTier",
+                    "formatter": 1
+                  },
+                  {
+                    "columnMatch": "skuName",
+                    "formatter": 1
+                  },
+                  {
+                    "columnMatch": "haMode",
+                    "formatter": 1
+                  },
+                  {
+                    "columnMatch": "state",
+                    "formatter": 1
+                  },
+                  {
+                    "columnMatch": "version",
+                    "formatter": 1
+                  },
+                  {
+                    "columnMatch": "fullVersion",
+                    "formatter": 1
+                  },
+                  {
+                    "columnMatch": "availabilityZone",
+                    "formatter": 1
+                  },
+                  {
+                    "columnMatch": "storageSizeGB",
+                    "formatter": 1
+                  },
+                  {
+                    "columnMatch": "backupRetentionDays",
+                    "formatter": 1
+                  },
+                  {
+                    "columnMatch": "subscriptionId",
+                    "formatter": 5
+                  },
+                  {
+                    "columnMatch": "Details",
+                    "formatter": 7,
+                    "formatOptions": {
+                      "linkTarget": "CellDetails",
+                      "linkLabel": "🔍 View Details",
+                      "linkIsContextBlade": true
+                    }
+                  }
+                ],
+                "filter": true,
+                "hierarchySettings": {
+                  "treeType": 1,
+                  "groupBy": [
+                    "subscriptionId"
+                  ],
+                  "expandTopLevel": true,
+                  "finalBy": "id"
+                },
+                "labelSettings": [
+                  {
+                    "columnId": "id",
+                    "label": "Resource Id"
+                  },
+                  {
+                    "columnId": "name",
+                    "label": "Name"
+                  },
+                  {
+                    "columnId": "resourceGroup",
+                    "label": "Resource Group"
+                  },
+                  {
+                    "columnId": "location",
+                    "label": "Location"
+                  },
+                  {
+                    "columnId": "skuTier",
+                    "label": "Tier"
+                  },
+                  {
+                    "columnId": "skuName",
+                    "label": "SKU"
+                  },
+                  {
+                    "columnId": "haMode",
+                    "label": "HA Mode"
+                  },
+                  {
+                    "columnId": "state",
+                    "label": "State"
+                  },
+                  {
+                    "columnId": "version",
+                    "label": "Version"
+                  },
+                  {
+                    "columnId": "fullVersion",
+                    "label": "Full Version"
+                  },
+                  {
+                    "columnId": "availabilityZone",
+                    "label": "AZ"
+                  },
+                  {
+                    "columnId": "storageSizeGB",
+                    "label": "Storage (GB)"
+                  },
+                  {
+                    "columnId": "backupRetentionDays",
+                    "label": "Backup Retention (days)"
+                  },
+                  {
+                    "columnId": "georedundantBackup",
+                    "label": "Geo-Redundant Backup"
+                  },
+                  {
+                    "columnId": "subscriptionId",
+                    "label": "Subscription"
+                  },
+                  {
+                    "columnId": "Details",
+                    "label": "Details"
+                  }
+                ]
+              }
+            },
+            "name": "query - overview table"
+          }
+        ]
+      },
+      "conditionalVisibility": {
+        "parameterName": "selectedTab",
+        "comparison": "isEqualTo",
+        "value": "Overview"
+      },
+      "name": "Overview Group"
+    },
+    {
+      "type": 12,
+      "content": {
+        "version": "NotebookGroup/1.0",
+        "groupType": "editable",
+        "items": [
+          {
+            "type": 1,
+            "content": {
+              "json": "## Inventory",
+              "style": "upsell"
+            },
+            "name": "text - inventory header"
+          },
+          {
+            "type": 3,
+            "content": {
+              "version": "KqlItem/1.0",
+              "query": "resources\n| where type == 'microsoft.dbformysql/flexibleservers'\n| summarize count() by type",
+              "size": 3,
+              "noDataMessage": "No MySQL Flexible Servers found",
+              "queryType": 1,
+              "resourceType": "microsoft.resourcegraph/resources",
+              "crossComponentResources": [
+                "{Subscription}"
+              ],
+              "visualization": "tiles",
+              "tileSettings": {
+                "titleContent": {
+                  "columnMatch": "type",
+                  "formatter": 16,
+                  "formatOptions": {
+                    "showIcon": true
+                  }
+                },
+                "leftContent": {
+                  "columnMatch": "count_",
+                  "formatter": 12,
+                  "numberFormat": {
+                    "unit": 17
+                  }
+                },
+                "showBorder": true,
+                "size": "auto"
+              }
+            },
+            "name": "query - inventory count"
+          },
+          {
+            "type": 3,
+            "content": {
+              "version": "KqlItem/1.0",
+              "query": "resources\n| where type == 'microsoft.dbformysql/flexibleservers'\n| where resourceGroup in ({ResourceGroup:value})\n| summarize count() by location",
+              "size": 3,
+              "title": "Count by Location",
+              "queryType": 1,
+              "resourceType": "microsoft.resourcegraph/resources",
+              "crossComponentResources": [
+                "{Subscription}"
+              ],
+              "visualization": "piechart",
+              "chartSettings": {
+                "showMetrics": false,
+                "showLegend": true
+              }
+            },
+            "customWidth": "25",
+            "name": "inventory - by location"
+          },
+          {
+            "type": 3,
+            "content": {
+              "version": "KqlItem/1.0",
+              "query": "resources\n| where type == 'microsoft.dbformysql/flexibleservers'\n| where resourceGroup in ({ResourceGroup:value})\n| extend tier = tostring(sku.tier)\n| summarize count() by tier",
+              "size": 3,
+              "title": "Count by Tier",
+              "queryType": 1,
+              "resourceType": "microsoft.resourcegraph/resources",
+              "crossComponentResources": [
+                "{Subscription}"
+              ],
+              "visualization": "piechart",
+              "chartSettings": {
+                "showMetrics": false,
+                "showLegend": true
+              }
+            },
+            "customWidth": "25",
+            "name": "inventory - by tier"
+          },
+          {
+            "type": 3,
+            "content": {
+              "version": "KqlItem/1.0",
+              "query": "resources\n| where type == 'microsoft.dbformysql/flexibleservers'\n| where resourceGroup in ({ResourceGroup:value})\n| extend version = tostring(properties.version)\n| summarize count() by version",
+              "size": 3,
+              "title": "Count by Version",
+              "queryType": 1,
+              "resourceType": "microsoft.resourcegraph/resources",
+              "crossComponentResources": [
+                "{Subscription}"
+              ],
+              "visualization": "piechart",
+              "chartSettings": {
+                "showMetrics": false,
+                "showLegend": true
+              }
+            },
+            "customWidth": "25",
+            "name": "inventory - by version"
+          },
+          {
+            "type": 3,
+            "content": {
+              "version": "KqlItem/1.0",
+              "query": "resources\n| where type == 'microsoft.dbformysql/flexibleservers'\n| where resourceGroup in ({ResourceGroup:value})\n| extend fullVersion = tostring(properties.fullVersion)\n| summarize count() by fullVersion",
+              "size": 3,
+              "title": "Count by Full Version",
+              "queryType": 1,
+              "resourceType": "microsoft.resourcegraph/resources",
+              "crossComponentResources": [
+                "{Subscription}"
+              ],
+              "visualization": "piechart",
+              "chartSettings": {
+                "showMetrics": false,
+                "showLegend": true
+              }
+            },
+            "customWidth": "25",
+            "name": "inventory - by fullversion"
+          },
+          {
+            "type": 3,
+            "content": {
+              "version": "KqlItem/1.0",
+              "query": "resources\n| where type == 'microsoft.dbformysql/flexibleservers'\n| where resourceGroup in ({ResourceGroup:value})\n| extend haMode = tostring(properties.highAvailability.mode)\n| summarize count() by haMode",
+              "size": 3,
+              "title": "Count by HA Mode",
+              "queryType": 1,
+              "resourceType": "microsoft.resourcegraph/resources",
+              "crossComponentResources": [
+                "{Subscription}"
+              ],
+              "visualization": "piechart",
+              "chartSettings": {
+                "showMetrics": false,
+                "showLegend": true
+              }
+            },
+            "customWidth": "25",
+            "name": "inventory - by ha"
+          }
+        ]
+      },
+      "conditionalVisibility": {
+        "parameterName": "selectedTab",
+        "comparison": "isEqualTo",
+        "value": "Inventory"
+      },
+      "name": "Inventory Group"
+    },
+    {
+      "type": 12,
+      "content": {
+        "version": "NotebookGroup/1.0",
+        "groupType": "editable",
+        "items": [
+          {
+            "type": 1,
+            "content": {
+              "json": "## Monitor\nExplore common metrics for Azure Database for MySQL - Flexible Server.",
+              "style": "upsell"
+            },
+            "name": "text - monitor header"
+          },
+          {
+            "type": 10,
+            "content": {
+              "chartId": "workbook-mysql-metrics-cpu",
+              "version": "MetricsItem/2.0",
+              "size": 0,
+              "chartType": 2,
+              "resourceType": "microsoft.dbformysql/flexibleservers",
+              "metricScope": 0,
+              "resourceParameter": "MySQLServers",
+              "resourceIds": [
+                "{MySQLServers}"
+              ],
+              "timeContextFromParameter": "TimeRange",
+              "timeContext": {
+                "durationMs": 86400000
+              },
+              "metrics": [
+                {
+                  "namespace": "microsoft.dbformysql/flexibleservers",
+                  "metric": "microsoft.dbformysql/flexibleservers-Saturation-cpu_percent",
+                  "aggregation": 4
+                }
+              ],
+              "title": "CPU Percent (Avg)",
+              "showOpenInMe": true,
+              "gridSettings": {
+                "rowLimit": 10000
+              }
+            },
+            "customWidth": "50",
+            "name": "metric - cpu"
+          },
+          {
+            "type": 10,
+            "content": {
+              "chartId": "workbook-mysql-metrics-connections",
+              "version": "MetricsItem/2.0",
+              "size": 0,
+              "chartType": 2,
+              "resourceType": "microsoft.dbformysql/flexibleservers",
+              "metricScope": 0,
+              "resourceParameter": "MySQLServers",
+              "resourceIds": [
+                "{MySQLServers}"
+              ],
+              "timeContextFromParameter": "TimeRange",
+              "timeContext": {
+                "durationMs": 86400000
+              },
+              "metrics": [
+                {
+                  "namespace": "microsoft.dbformysql/flexibleservers",
+                  "metric": "microsoft.dbformysql/flexibleservers-Traffic-active_connections",
+                  "aggregation": 4
+                }
+              ],
+              "title": "Active Connections (Avg)",
+              "showOpenInMe": true,
+              "gridSettings": {
+                "rowLimit": 10000
+              }
+            },
+            "customWidth": "50",
+            "name": "metric - connections"
+          },
+          {
+            "type": 12,
+            "content": {
+              "version": "NotebookGroup/1.0",
+              "groupType": "editable",
+              "title": "Additional Metrics",
+              "expandable": true,
+              "expanded": true,
+              "items": [
+                {
+                  "type": 10,
+                  "content": {
+                    "chartId": "workbook-mysql-metrics-storage",
+                    "version": "MetricsItem/2.0",
+                    "size": 0,
+                    "chartType": 2,
+                    "resourceType": "microsoft.dbformysql/flexibleservers",
+                    "metricScope": 0,
+                    "resourceParameter": "MySQLServers",
+                    "resourceIds": [
+                      "{MySQLServers}"
+                    ],
+                    "timeContextFromParameter": "TimeRange",
+                    "timeContext": {
+                      "durationMs": 86400000
+                    },
+                    "metrics": [
+                      {
+                        "namespace": "microsoft.dbformysql/flexibleservers",
+                        "metric": "microsoft.dbformysql/flexibleservers-Saturation-storage_used",
+                        "aggregation": 4
+                      }
+                    ],
+                    "title": "Storage Used (Avg)",
+                    "gridSettings": {
+                      "rowLimit": 10000
+                    }
+                  },
+                  "customWidth": "50",
+                  "name": "metric - storage"
+                },
+                {
+                  "type": 10,
+                  "content": {
+                    "chartId": "workbook-mysql-metrics-networkin",
+                    "version": "MetricsItem/2.0",
+                    "size": 0,
+                    "chartType": 2,
+                    "resourceType": "microsoft.dbformysql/flexibleservers",
+                    "metricScope": 0,
+                    "resourceParameter": "MySQLServers",
+                    "resourceIds": [
+                      "{MySQLServers}"
+                    ],
+                    "timeContextFromParameter": "TimeRange",
+                    "timeContext": {
+                      "durationMs": 86400000
+                    },
+                    "metrics": [
+                      {
+                        "namespace": "microsoft.dbformysql/flexibleservers",
+                        "metric": "microsoft.dbformysql/flexibleservers-Traffic-network_bytes_egress",
+                        "aggregation": 1
+                      }
+                    ],
+                    "title": "Network Egress (Sum)",
+                    "gridSettings": {
+                      "rowLimit": 10000
+                    }
+                  },
+                  "customWidth": "50",
+                  "name": "metric - network egress"
+                }
+              ]
+            },
+            "name": "group - additional metrics"
+          }
+        ]
+      },
+      "conditionalVisibility": {
+        "parameterName": "selectedTab",
+        "comparison": "isEqualTo",
+        "value": "Monitor"
+      },
+      "name": "Monitor Group"
+    }
+  ],
+  "fallbackResourceIds": [
+    "azure monitor"
+  ],
+  "fromTemplateId": "community-Workbooks/LogAnalytics Workspace/AtScale",
+  "$schema": "https://github.com/Microsoft/Application-Insights-Workbooks/blob/master/schema/workbook.json"
+}
