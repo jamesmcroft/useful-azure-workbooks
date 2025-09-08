@@ -24,7 +24,7 @@ Simply follow these steps:
 
 | Name | Description |
 | ---- | ----------- |
-| Azure MySQL Flexible Server Insights | Use this workbook to analyze and monitor all your Azure MySQL Flexible Server resources (providers/Microsoft.DBforMySQL/flexibleServers) across subscriptions. Initially created to explore the availability of the new `properties.fullVersion` in ARG. |
+| [**Azure MySQL Flexible Server Insights**](./mysql_flexibleserver_insights.json) | Use this workbook to analyze and monitor all your Azure MySQL Flexible Server resources (providers/Microsoft.DBforMySQL/flexibleServers) across subscriptions. Initially created to explore the availability of the new `properties.fullVersion` in ARG. |
 
 ## Contributing
 
